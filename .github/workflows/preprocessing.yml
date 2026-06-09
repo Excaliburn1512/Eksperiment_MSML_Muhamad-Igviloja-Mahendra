@@ -1,0 +1,65 @@
+name: Automated Data Preprocessing
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/preprocessing.yml"
+  workflow_dispatch:
+    inputs:
+      input_file:
+        description: "Nama file raw CSV di folder preprocessing/"
+        required: true
+        default: "Customer-Churn-Records_raw.csv"
+
+jobs:
+  preprocessing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy scikit-learn
+
+      - name: Run Automate Preprocessing
+        run: |
+          python automate_Muhamad-Igviloja-Mahendra.py \
+            --input "${{ github.event.inputs.input_file || 'Customer-Churn-Records_raw.csv' }}" \
+            --output Customer-Churn-Records_preprocessing.csv
+
+      - name: Verify Output
+        run: |
+          python -c "
+          import pandas as pd
+          df = pd.read_csv('preprocessing/Customer-Churn-Records_preprocessing.csv')
+          print(f'Output shape: {df.shape}')
+          print(f'Columns: {df.columns.tolist()}')
+          print('Preprocessing berhasil!')
+          "
+
+      - name: Upload Preprocessed Dataset as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preprocessed-dataset
+          path: preprocessing/Customer-Churn-Records_preprocessing.csv
+          retention-days: 30
+
+      - name: Commit Preprocessed Dataset Back to Repo
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Actions"
+          git add preprocessing/Customer-Churn-Records_preprocessing.csv
+          git diff --staged --quiet || git commit -m "chore: update preprocessed dataset [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
